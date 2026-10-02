@@ -94,5 +94,23 @@ vueAdmin = async function () {
     h("div", {}, h("button", { class: "link", onclick: () => { location.hash = ""; } }, "Retour à la page employés")));
   show(...blocs);
 };
+vueLogin = function () {
+  code = "1234";
+  const n = h("input", { type: "text", placeholder: "Ton prénom", value: nom, autocomplete: "given-name" });
+  const go = async () => {
+    if (!n.value.trim()) return toast("Entre ton prénom.");
+    nom = n.value.trim();
+    try { await charger(); store.set("code", code); store.set("nom", nom); vueListe(); }
+    catch (e) { toast("Erreur de connexion."); }
+  };
+  show(
+    h("img", { class: "logo", src: LOGO, alt: "" }),
+    h("h1", {}, "The Place To B"),
+    h("p", { class: "sub" }, "Entre ton prénom pour signaler les produits qui manquent."),
+    n,
+    h("button", { onclick: go }, "Entrer"),
+    h("div", {}, h("button", { class: "link", onclick: () => { location.hash = "admin"; } }, "Espace gérant"))
+  );
+};
 
 route();
