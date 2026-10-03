@@ -1,5 +1,6 @@
 /* Ajout : catégories dans l'ordre + unités (kg, L) */
-const ORDRE = ["Viandes", "Sauces", "Frites et snacks", "Légumes", "Pains", "Courses", "Boîtes", "Sucre", "Boissons"];
+const ORDRE = ["Viandes", "Sauces", "Frites et snacks", "Légumes", "Pains", "Courses", "Boîtes", "Sucre", "Boissons", "Produits nettoyants"];
+
 
 const unite = p => {
   if (p.unite && p.unite !== "unités") return p.unite;
