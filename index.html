@@ -68,7 +68,7 @@ const store = {
 };
 let tt;
 function toast(msg) {
-  document.querySelector(".toast")?.remove();
+  var old = document.querySelector(".toast"); if (old) old.remove();
   const t = h("div", { class: "toast", role: "status" }, msg);
   document.body.append(t);
   clearTimeout(tt); tt = setTimeout(() => t.remove(), 3500);
@@ -113,7 +113,8 @@ async function maj(p, besoin, qte, note) {
 
 function vueListe() {
   const cats = {};
-  items.forEach(p => (cats[p.categorie || "Autres"] ||= []).push(p));
+  items.forEach(p => { const k = p.categorie || "Autres"; (cats[k] = cats[k] || []).push(p); });
+
   const nb = items.filter(p => p.besoin).length;
   const blocs = [h("h1", {}, "Il manque quoi ?"), h("p", { class: "sub" }, "Salut " + nom + ". Coche ce qui est presque fini.")];
   if (!items.length) blocs.push(h("p", { class: "sub" }, "Aucun produit pour l'instant. Le gérant doit d'abord en ajouter."));
