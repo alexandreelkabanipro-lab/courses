@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Courses · The Place To B</title>
+<style>
+:root{--bg:#0b0a09;--ink:#f3ece0;--mute:#9a8f7c;--line:#2e2619;--card:#15120d;--gold:#e0a93b}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0a09;color:#f3ece0;font:18px/1.4 -apple-system,Helvetica,Arial,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px 16px 120px}
+h1{font-size:30px;margin:8px 0 4px}
+h2{font-size:19px;margin:24px 0 8px;color:#e0a93b;text-transform:uppercase;letter-spacing:2px}
+p.sub{color:#9a8f7c;margin:0 0 16px}
+input[type=text]{width:100%;padding:13px 14px;border:2px solid #2e2619;border-radius:10px;background:#15120d;color:#f3ece0;font-size:18px;margin:0 0 10px}
+button{border:0;border-radius:10px;padding:13px 18px;font-size:18px;font-weight:600;background:#e0a93b;color:#1a1206}
+button.alt{background:transparent;color:#e0a93b;border:2px solid #2e2619;min-width:56px}
+button.link{background:none;color:#9a8f7c;text-decoration:underline;font-weight:400}
+.row{display:block;background:#15120d;border:2px solid #2e2619;border-radius:12px;padding:14px;margin-bottom:8px}
+.row.on{border-color:#e0a93b;background:#3a2d17}
+.row input{width:26px;height:26px;margin:0 14px 0 0;vertical-align:middle}
+.det{margin:0 4px 10px}
+.qty{margin-bottom:8px}
+.qty b{display:inline-block;min-width:80px;text-align:center;font-size:22px}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px;background:#0b0a09;border-top:2px solid #2e2619}
+.bar button{display:block;width:100%;max-width:608px;margin:0 auto;padding:16px;font-size:20px}
+.toast{position:fixed;top:12px;left:16px;right:16px;max-width:608px;margin:0 auto;background:#f3ece0;color:#0b0a09;padding:12px 16px;border-radius:10px;font-weight:600;z-index:9}
+</style></head>
+<body><main id="app"></main>
+<script>
+var API="https://uapnfbgdodtyxnutpcee.supabase.co";
+var KEY="sb_publishable__IwM31er7DzPxsGJofDs9g_hZgxUvdc";
+var CODE="1234";
+var ORDRE=["Viandes","Sauces","Frites et snacks","Légumes","Pains","Courses","Boîtes","Sucre","Boissons","Produits nettoyants"];
+var app=document.getElementById("app"),items=[],nom="",tt;
+
+function rpc(name,args){
+  return fetch(API+"/rest/v1/rpc/"+name,{method:"POST",
+    headers:{"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json"},
+    body:JSON.stringify(args)}).then(function(r){
+    return r.json().catch(function(){return null}).then(function(d){
+      if(!r.ok)throw new Error((d&&d.message)||("Erreur "+r.status));
+      return d;});});
+}
+function h(tag,props){
+  var e=document.createElement(tag),k;
+  props=props||{};
+  for(k in props){
+    if(k==="class")e.className=props[k];
+    else if(k.indexOf("on")===0)e.addEventListener(k.slice(2),props[k]);
+    else e[k]=props[k];
+  }
+  for(var i=2;i<arguments.length;i++){var c=arguments[i];if(c!=null)e.appendChild(typeof c==="object"?c:document.createTextNode(c));}
+  return e;
+}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k)||"";localStorage.setItem(k,v);}catch(e){return "";}}
+function toast(msg){
+  var o=document.querySelector(".toast");if(o)o.parentNode.removeChild(o);
+  var t=h("div",{class:"toast"},msg);document.body.appendChild(t);
+  clearTimeout(tt);tt=setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},3500);
+}
+function show(nodes){while(app.firstChild)app.removeChild(app.firstChild);nodes.forEach(function(n){app.appendChild(n);});}
+function unite(p){
+  var n=(p.nom||"").trim().toLowerCase();
+  return n==="poulet"||n==="merguez"?"kg":n==="huile"?"L":"";
+}
+function charger(){return rpc("courses_liste",{p_code:CODE}).then(function(d){items=d||[];});}
+function maj(p,besoin,qte,note){
+  return rpc("courses_maj",{p_code:CODE,p_id:p.id,p_besoin:besoin,p_qte:qte,p_note:note,p_nom:nom})
+    .then(function(){p.besoin=besoin;p.qte=besoin?qte:0;p.note=besoin?note:"";})
+    .catch(function(e){toast("Erreur : "+e.message);});
+}
+function vueLogin(){
+  var n=h("input",{type:"text",placeholder:"Ton prénom",value:nom});
+  show([h("h1",{},"The Place To B"),
+    h("p",{class:"sub"},"Entre ton prénom pour signaler les produits qui manquent."),n,
+    h("button",{onclick:function(){
+      if(!n.value.trim())return toast("Entre ton prénom.");
+      nom=n.value.trim();store("nom",nom);vueListe();}},"Entrer")]);
+}
+function vueListe(){
+  var cats={},nb=0,blocs=[];
+  items.forEach(function(p){var k=p.categorie||"Autres";(cats[k]=cats[k]||[]).push(p);if(p.besoin)nb++;});
+  var noms=Object.keys(cats).sort(function(a,b){
+    var i=ORDRE.indexOf(a),j=ORDRE.indexOf(b);return (i<0?99:i)-(j<0?99:j);});
+  blocs.push(h("h1",{},"Il manque quoi ?"),h("p",{class:"sub"},"Salut "+nom+". Coche ce qui est presque fini."));
+  noms.forEach(function(cat){
+    blocs.push(h("h2",{},cat));
+    cats[cat].forEach(function(p){
+      var u=unite(p);
+      var cb=h("input",{type:"checkbox",checked:p.besoin,onchange:function(){
+        maj(p,cb.checked,1,"").then(vueListe);}});
+      blocs.push(h("label",{class:"row"+(p.besoin?" on":"")},cb,p.nom));
+      if(p.besoin){
+        var note=h("input",{type:"text",placeholder:"Précision (facultatif)",value:p.note||"",maxLength:120,
+          onchange:function(){maj(p,true,p.qte,note.value);}});
+        blocs.push(h("div",{class:"det"},
+          h("div",{class:"qty"},
+            h("button",{class:"alt",onclick:function(){if(p.qte>1)maj(p,true,p.qte-1,p.note).then(vueListe);}},"−"),
+            h("b",{},p.qte+(u?" "+u:"")),
+            h("button",{class:"alt",onclick:function(){if(p.qte<99)maj(p,true,p.qte+1,p.note).then(vueListe);}},"+")),
+          note));
+      }
+    });
+  });
+  blocs.push(h("div",{},h("button",{class:"link",onclick:function(){store("nom","");nom="";vueLogin();}},"Changer de personne")));
+  var send=h("button",{onclick:function(){
+    send.disabled=true;
+    rpc("courses_envoyer",{p_code:CODE,p_nom:nom}).then(function(d){
+      send.disabled=false;toast(d?d+" produit(s) envoyé(s) au gérant.":"Rien n'est coché.");
+    }).catch(function(e){
+      send.disabled=false;toast(e.message.indexOf("patiente")>=0?"Patiente 30 secondes avant de renvoyer.":"Erreur : "+e.message);});
+  }},nb?"Envoyer au gérant ("+nb+")":"Envoyer au gérant");
+  blocs.push(h("div",{class:"bar"},send));
+  show(blocs);
+}
+nom=store("nom");
+charger().then(function(){nom?vueListe():vueLogin();}).catch(function(e){
+  show([h("h1",{},"Connexion impossible"),h("p",{class:"sub"},e.message),
+    h("button",{onclick:function(){location.reload();}},"Réessayer")]);});
+</script></body></html>
