@@ -1,1 +1,133 @@
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Planning & paie – The Place To B</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--card:#fff;--mut:#777;--ac:#c2410c;--ok:#15803d;--ko:#b91c1c;--bd:#e5e3dc;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171716;--fg:#f2f1ec;--card:#222221;--mut:#9a9890;--bd:#38372f}}
+:root[data-theme="dark"]{--bg:#171716;--fg:#f2f1ec;--card:#222221;--mut:#9a9890;--bd:#38372f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,Segoe UI,sans-serif;padding:12px;max-width:640px;margin:auto}
+h1{font-size:19px;margin:4px 0 10px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;padding:10px 4px;border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:10px;font-size:14px}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px}
+input,select{font:inherit;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--fg);width:100%;margin:3px 0}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+button.p{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:11px;font-size:15px;width:100%;margin-top:6px}
+button.s{background:none;border:1px solid var(--bd);color:var(--fg);border-radius:8px;padding:6px 10px;flex:none}
+.mut{color:var(--mut);font-size:13px}
+.big{font-size:22px;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.grid div{text-align:center;padding:8px 0;border-radius:8px;border:1px solid var(--bd);font-size:14px;background:var(--card)}
+.grid .h{border:0;background:none;color:var(--mut);font-size:12px;padding:2px}
+.grid .d.has{background:var(--ac);color:#fff;border-color:var(--ac)}
+.grid .d.sel{outline:2px solid var(--fg)}
+.st{display:flex;gap:4px}.st button{flex:1;padding:8px 2px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--fg);font-size:13px}
+.st .a1{background:var(--ok);color:#fff}.st .a2{background:var(--ko);color:#fff}
+.neg{color:var(--ko)}.pos{color:var(--ok)}
+.wrap{overflow-x:auto}
+#warn{background:#fde68a;color:#422006;padding:8px;border-radius:8px;margin-bottom:10px;display:none;font-size:14px}
+</style>
+</head>
+<body>
+<h1>The Place To B – Planning & paie</h1>
+<div id="warn"></div>
+<div class="tabs" id="tabs"></div>
+<div id="v"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.js"></script>
+<script>
+var TABS=[["emp","Employés"],["plan","Planning"],["adv","Avances"],["sum","Résumé"]];
+var S={employees:[],shifts:{},advances:[]},tab="sum",month=new Date().toISOString().slice(0,7),selDay=null,ref=null,pend=null,editId=null;
+function uid(){return Math.random().toString(36).slice(2,9)}
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function money(n){return (Math.round(n*100)/100).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:2})}
+function warn(t){var w=document.getElementById("warn");w.textContent=t;w.style.display="block";try{window.scrollTo(0,0)}catch(x){}}
+var SB_URL="https://uapnfbgdodtyxnutpcee.supabase.co",SB_KEY="sb_publishable__IwM31er7DzPxsGJofDs9g_hZgxUvdc",sb=null,logged=false,ready=false,loaded=false;
+function clearWarn(){document.getElementById("warn").style.display="none"}
+function pull(){sb.from("planning_data").select("data").eq("id","main").maybeSingle().then(function(r){if(r.error){warn("Lecture impossible : "+r.error.message);return}if(r.data&&r.data.data){var d=r.data.data;S={employees:d.employees||[],shifts:d.shifts||{},advances:d.advances||[]}}loaded=true;render()})}
+function save(){if(sb&&logged&&loaded){sb.from("planning_data").upsert({id:"main",data:JSON.parse(JSON.stringify(S))}).then(function(r){if(r.error)warn("Sauvegarde impossible : "+r.error.message)})}render()}
+function load(){
+  if(!window.supabase||SB_URL.indexOf("COLLE")==0){ready=true;warn("Il manque l'adresse ou la clé Supabase en haut du fichier.");render();return}
+  sb=window.supabase.createClient(SB_URL,SB_KEY);
+  sb.auth.getSession().then(function(r){logged=!!(r.data&&r.data.session);ready=true;render();if(logged)pull()}).catch(function(){ready=true;render()});
+  document.addEventListener("visibilitychange",function(){if(!document.hidden&&logged&&editId===null)pull()});
+}
+function viewLogin(){return '<div class="card"><b>Connexion</b><input id="lm" type="email" autocomplete="username" placeholder="Email"><input id="lp" type="password" autocomplete="current-password" placeholder="Mot de passe"><button class="p" data-a="login">Se connecter</button></div>'}
+function tabs(){var t=document.getElementById("tabs");t.innerHTML=TABS.map(function(x){return '<button class="'+(x[0]==tab?"on":"")+'" data-t="'+x[0]+'">'+x[1]+'</button>'}).join("");
+  t.onclick=function(e){var k=e.target.getAttribute("data-t");if(k){tab=k;render()}}}
+function monthBar(){return '<div class="row card"><button class="s" data-m="-1">◀</button><div style="text-align:center"><b>'+monthLabel()+'</b></div><button class="s" data-m="1">▶</button></div>'}
+function monthLabel(){var p=month.split("-");return new Date(p[0],p[1]-1,1).toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}
+function shiftMonth(d){var p=month.split("-");var n=new Date(+p[0],+p[1]-1+d,1);month=n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0");selDay=null}
+function daysIn(){var p=month.split("-");return new Date(p[0],p[1],0).getDate()}
+function empName(id){for(var i=0;i<S.employees.length;i++)if(S.employees[i].id==id)return S.employees[i].name;return"?"}
+function render(){
+  document.getElementById("warn").style.display=ref||!window.__w?document.getElementById("warn").style.display:"block";var v=document.getElementById("v");
+  if(!ready){document.getElementById("tabs").innerHTML="";v.innerHTML='<p class="mut">Chargement…</p>';return}
+  if(!logged){document.getElementById("tabs").innerHTML="";v.innerHTML=viewLogin();return}
+  tabs();
+  if(tab=="emp")v.innerHTML=viewEmp();else if(tab=="plan")v.innerHTML=viewPlan();else if(tab=="adv")v.innerHTML=viewAdv();else v.innerHTML=viewSum();
+}
+function viewEmp(){
+  var h='<div class="card"><b>Ajouter un employé</b><input id="en" placeholder="Prénom"><input id="em" type="text" inputmode="decimal" placeholder="Montant fixe par mois"><button class="p" data-a="addEmp">Ajouter</button></div>';
+  S.employees.forEach(function(e){if(editId==e.id){h+='<div class="card"><b>'+esc(e.name)+'</b><input id="ev" type="text" inputmode="decimal" value="'+e.monthly+'"><div class="row"><button class="p" data-a="saveEmp" data-id="'+e.id+'">Enregistrer</button><button class="s" data-a="cancelEmp">Annuler</button></div></div>';return}h+='<div class="card row"><div><b>'+esc(e.name)+'</b><div class="mut">'+money(e.monthly)+' / mois</div></div><button class="s" data-a="editEmp" data-id="'+e.id+'">Modifier</button><button class="s" data-a="delEmp" data-id="'+e.id+'"'+(pend==e.id?' style="background:var(--ko);color:#fff"':'')+'>'+(pend==e.id?'Confirmer ?':'Supprimer')+'</button></div>'});
+  if(!S.employees.length)h+='<p class="mut">Aucun employé pour l\'instant.</p>';return h}
+function viewPlan(){
+  var h=monthBar(),n=daysIn(),p=month.split("-"),first=(new Date(p[0],p[1]-1,1).getDay()+6)%7;
+  h+='<div class="card"><div class="mut">Touche un jour pour choisir qui travaille. Vert = présent, rouge = absent.</div><div class="grid">';
+  ["L","M","M","J","V","S","D"].forEach(function(d){h+='<div class="h">'+d+'</div>'});
+  for(var i=0;i<first;i++)h+='<div class="h"></div>';
+  for(var d=1;d<=n;d++){var k=month+"-"+String(d).padStart(2,"0"),has=S.shifts[k]&&Object.keys(S.shifts[k]).length;
+    h+='<div class="d'+(has?" has":"")+(selDay==k?" sel":"")+'" data-d="'+k+'">'+d+'</div>'}
+  h+='</div></div>';
+  if(selDay){h+='<div class="card"><b>'+new Date(selDay+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})+'</b>';
+    if(!S.employees.length)h+='<p class="mut">Ajoute d\'abord des employés.</p>';
+    S.employees.forEach(function(e){var st=(S.shifts[selDay]||{})[e.id]||"";
+      h+='<div style="margin-top:10px">'+esc(e.name)+'<div class="st"><button data-s="" data-id="'+e.id+'" class="'+(st==""?"":"")+'">Repos</button><button data-s="p" data-id="'+e.id+'" class="'+(st=="p"?"a1":"")+'">Présent</button><button data-s="a" data-id="'+e.id+'" class="'+(st=="a"?"a2":"")+'">Absent</button></div></div>'});
+    h+='</div>'}
+  return h}
+function viewAdv(){
+  var h='<div class="card"><b>Nouvelle avance</b><select id="ae">'+S.employees.map(function(e){return'<option value="'+e.id+'">'+esc(e.name)+'</option>'}).join("")+'</select><input id="ad" type="date" value="'+new Date().toISOString().slice(0,10)+'"><input id="aa" type="text" inputmode="decimal" placeholder="Montant"><button class="p" data-a="addAdv">Enregistrer</button></div>';
+  S.advances.slice().sort(function(a,b){return a.date<b.date?1:-1}).forEach(function(a){
+    h+='<div class="card row"><div><b>'+esc(empName(a.emp))+'</b> – '+money(a.amount)+'<div class="mut">'+a.date+'</div></div><button class="s" data-a="delAdv" data-id="'+a.id+'">Retirer</button></div>'});
+  if(!S.advances.length)h+='<p class="mut">Aucune avance.</p>';return h}
+function calc(e){
+  var n=0,ab=0,i,k,d=daysIn();
+  for(i=1;i<=d;i++){k=month+"-"+String(i).padStart(2,"0");var st=(S.shifts[k]||{})[e.id];if(st){n++;if(st=="a")ab++}}
+  var dv=n?e.monthly/n:0,ded=ab*dv,adv=0;
+  S.advances.forEach(function(a){if(a.emp==e.id&&a.date.slice(0,7)==month)adv+=+a.amount});
+  return{n:n,ab:ab,dv:dv,ded:ded,adv:adv,rest:e.monthly-ded-adv}}
+function viewSum(){
+  var h=monthBar(),tot=0;
+  S.employees.forEach(function(e){var c=calc(e);tot+=c.rest;
+    h+='<div class="card"><div class="row"><b>'+esc(e.name)+'</b><div class="big '+(c.rest<0?"neg":"")+'" style="text-align:right">'+money(c.rest)+'</div></div><div class="mut">Reste à payer</div><div class="wrap"><table style="width:100%;font-size:14px;margin-top:6px"><tr><td>Montant du mois</td><td align="right">'+money(e.monthly)+'</td></tr><tr><td>Jours prévus / absences</td><td align="right">'+c.n+' / '+c.ab+'</td></tr><tr><td>Retenue absences</td><td align="right" class="neg">− '+money(c.ded)+'</td></tr><tr><td>Avances</td><td align="right" class="neg">− '+money(c.adv)+'</td></tr></table></div></div>'});
+  if(!S.employees.length)h+='<p class="mut">Commence par ajouter tes employés.</p>';
+  else h+='<div class="card row"><b>Total à payer</b><div class="big" style="text-align:right">'+money(tot)+'</div></div>';
+  h+='<button class="s" data-a="logout" style="margin-top:6px">Se déconnecter</button>';return h}
+function onTap(ev){
+  var t=ev.target.closest("button,.d");if(!t)return;
+  var m=t.getAttribute("data-m");if(m){pend=null;shiftMonth(+m);render();return}
+  var d=t.getAttribute("data-d");if(d){selDay=d;render();return}
+  var s=t.getAttribute("data-s"),id=t.getAttribute("data-id"),a=t.getAttribute("data-a");
+  if(s!==null&&id&&selDay){S.shifts[selDay]=S.shifts[selDay]||{};if(s)S.shifts[selDay][id]=s;else delete S.shifts[selDay][id];save();return}
+  if(a=="addEmp"){var n=document.getElementById("en").value.trim(),mo=parseFloat(document.getElementById("em").value.replace(",","."));if(!n||isNaN(mo)){warn("Écris le prénom ET le montant du mois, puis touche Ajouter.");return}S.employees.push({id:uid(),name:n,monthly:mo});save()}
+  else if(a=="editEmp"){editId=id;pend=null;render();return}
+  else if(a=="cancelEmp"){editId=null;render();return}
+  else if(a=="saveEmp"){var nv=parseFloat(document.getElementById("ev").value.replace(",","."));if(isNaN(nv)){warn("Écris un montant.");return}S.employees.forEach(function(x){if(x.id==id)x.monthly=nv});editId=null;save()}
+  else if(a=="delEmp"){if(pend!=id){pend=id;render();return}pend=null;S.employees=S.employees.filter(function(e){return e.id!=id});S.advances=S.advances.filter(function(x){return x.emp!=id});Object.keys(S.shifts).forEach(function(k){delete S.shifts[k][id]});save()}
+  else if(a=="addAdv"){var e=document.getElementById("ae").value,dt=document.getElementById("ad").value,am=parseFloat(document.getElementById("aa").value.replace(",","."));if(!e||!dt||isNaN(am)){warn("Choisis l'employé, la date et écris le montant.");return}S.advances.push({id:uid(),emp:e,date:dt,amount:am});save()}
+  else if(a=="login"){var em=document.getElementById("lm").value.trim(),pw=document.getElementById("lp").value;if(!em||!pw){warn("Écris l'email et le mot de passe.");return}sb.auth.signInWithPassword({email:em,password:pw}).then(function(r){if(r.error){warn("Email ou mot de passe incorrect.");return}clearWarn();logged=true;pull()});return}
+  else if(a=="logout"){sb.auth.signOut().then(function(){logged=false;loaded=false;S={employees:[],shifts:{},advances:[]};render()});return}
+  else if(a=="delAdv"){S.advances=S.advances.filter(function(x){return x.id!=id});save()}
+}
+document.addEventListener("click",function(ev){try{onTap(ev)}catch(x){warn("Erreur : "+(x&&x.message?x.message:x))}});
+load();render();
+</script>
+</body>
+</html>
