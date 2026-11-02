@@ -26,13 +26,14 @@ th{background:#1f3864;color:#fff;padding:6px 2px;font-size:12px;position:sticky;
 td{padding:3px 2px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px}
 td.d{text-align:left;white-space:nowrap;padding-left:4px;font-size:12px}
 tr.we td{background:#f1f5f9}
+tr.sel td{background:#fde68a}
 td input{width:100%;min-width:0;padding:6px 3px;font-size:16px;text-align:right}
 tfoot td{background:#1f3864;color:#fff;font-weight:bold;padding:8px 2px;position:sticky;bottom:0}
 td.tot{font-weight:bold;white-space:nowrap}
 #st{margin-left:auto;font-size:13px;color:#bfdbfe}
 .day{margin:12px 12px 0;background:#1f3864;color:#fff;border-radius:8px;padding:10px;text-align:center;font-size:14px}
 .day b{display:block;font-size:24px;margin-top:4px}
-.emp .cards,.emp tfoot,.emp #ms,.emp #ys{display:none}
+.emp .cards,.emp tfoot,.emp #ms,.emp #ys,.emp #js{display:none}
 </style>
 </head>
 <body>
@@ -49,6 +50,7 @@ td.tot{font-weight:bold;white-space:nowrap}
     <h1 id="tit">The Place To B – Recettes</h1>
     <select id="ms"></select>
     <select id="ys"></select>
+    <select id="js"></select>
     <span id="st"></span>
     <button id="out">Quitter</button>
   </header>
@@ -103,11 +105,20 @@ for (var y = now.getFullYear() - 1; y <= now.getFullYear() + 2; y++) { var q = d
 $("ms").value = now.getMonth() + 1; $("ys").value = now.getFullYear();
 $("ms").onchange = load; $("ys").onchange = load;
 
+function fillDays(y, m, n){
+  var t = new Date(), h = "";
+  var def = (y === t.getFullYear() && m === t.getMonth() + 1) ? t.getDate() : 1;
+  for (var d = 1; d <= n; d++) h += '<option value="' + d + '">' + d + "</option>";
+  $("js").innerHTML = h; $("js").value = def;
+}
+$("js").onchange = function(){ totals(); var r = $("tb").querySelector("tr.sel"); if (r) r.scrollIntoView({block: "center"}); };
+
 var data = {};
 function load(){
   var t = new Date(), y = +$("ys").value, m = +$("ms").value;
   if (emp) { y = t.getFullYear(); m = t.getMonth() + 1; }
   var n = new Date(y, m, 0).getDate();
+  if (!emp) fillDays(y, m, n);
   var a = y + "-" + p(m) + "-" + (emp ? p(t.getDate()) : "01"), b = y + "-" + p(m) + "-" + (emp ? p(t.getDate()) : p(n));
   db.from("recettes").select("*").gte("jour", a).lte("jour", b).then(function(r){
     data = {};
@@ -132,17 +143,25 @@ function render(y, m, n){
 }
 
 function totals(){
-  var sum = [0, 0, 0, 0], tj = 0, found = false, nw = new Date();
-  var tk = nw.getFullYear() + "-" + p(nw.getMonth() + 1) + "-" + p(nw.getDate());
+  var sum = [0, 0, 0, 0], tj = 0, found = false, nw = new Date(), tk, lab;
+  if (emp) {
+    tk = nw.getFullYear() + "-" + p(nw.getMonth() + 1) + "-" + p(nw.getDate()); lab = "Total du jour";
+  } else {
+    var sy = +$("ys").value, sm = +$("ms").value, sd = +$("js").value || 1;
+    tk = sy + "-" + p(sm) + "-" + p(sd);
+    lab = "Total du " + JOURS[new Date(sy, sm - 1, sd).getDay()] + " " + p(sd) + "/" + p(sm);
+  }
   var rows = $("tb").getElementsByTagName("tr");
   for (var i = 0; i < rows.length; i++) {
     var ins = rows[i].getElementsByTagName("input"), t = 0;
     for (var j = 0; j < ins.length; j++) { var v = num(ins[j].value); sum[j] += v; t += v; }
     rows[i].lastChild.textContent = t ? eur(t) : "";
-    if (rows[i].getAttribute("data-d") === tk) { found = true; tj = t; }
+    var isSel = rows[i].getAttribute("data-d") === tk;
+    rows[i].classList.toggle("sel", isSel);
+    if (isSel) { found = true; tj = t; }
   }
   $("day").hidden = !found;
-  $("day").innerHTML = "Total du jour<b>" + eur(tj) + "</b>";
+  $("day").innerHTML = lab + "<b>" + eur(tj) + "</b>";
   var all = sum[0] + sum[1] + sum[2] + sum[3], h = "";
   for (var k = 0; k < 4; k++) {
     h += '<div class="card"><small>' + NOMS[k] + "</small><b>" + eur(sum[k]) + "</b><small>" + (all ? Math.round(sum[k] / all * 100) : 0) + " %</small></div>";
