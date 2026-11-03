@@ -33,7 +33,8 @@ td.tot{font-weight:bold;white-space:nowrap}
 #st{margin-left:auto;font-size:13px;color:#bfdbfe}
 .day{margin:12px 12px 0;background:#1f3864;color:#fff;border-radius:8px;padding:10px;text-align:center;font-size:14px}
 .day b{display:block;font-size:24px;margin-top:4px}
-.emp .cards,.emp tfoot,.emp #ms,.emp #ys,.emp #js{display:none}
+.emp .cards,.emp tfoot,.emp #ms,.emp #ys,.emp #js,.emp #wk{display:none}
+#wk{margin-top:8px}
 </style>
 </head>
 <body>
@@ -55,6 +56,7 @@ td.tot{font-weight:bold;white-space:nowrap}
     <button id="out">Quitter</button>
   </header>
   <div class="day" id="day" hidden></div>
+  <div class="day" id="wk" hidden></div>
   <div class="cards" id="cards"></div>
   <div class="wrap">
     <table>
@@ -77,6 +79,7 @@ var CH = ["cb","especes","uber","deliveroo"];
 var NOMS = ["CB","Espèces","Uber","Deliveroo"];
 var $ = function(id){ return document.getElementById(id); };
 function p(n){ return n < 10 ? "0" + n : "" + n; }
+function key(d){ return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
 function eur(x){ return x.toFixed(2).replace(".", ",") + " €"; }
 function num(v){ var x = parseFloat(String(v).replace(",", ".")); return isNaN(x) ? 0 : x; }
 
@@ -119,7 +122,7 @@ function load(){
   if (emp) { y = t.getFullYear(); m = t.getMonth() + 1; }
   var n = new Date(y, m, 0).getDate();
   if (!emp) fillDays(y, m, n);
-  var a = y + "-" + p(m) + "-" + (emp ? p(t.getDate()) : "01"), b = y + "-" + p(m) + "-" + (emp ? p(t.getDate()) : p(n));
+  var a = emp ? key(t) : key(new Date(y, m - 1, -5)), b = emp ? key(t) : key(new Date(y, m - 1, n + 6));
   db.from("recettes").select("*").gte("jour", a).lte("jour", b).then(function(r){
     data = {};
     (r.data || []).forEach(function(x){ data[x.jour] = x; });
@@ -159,6 +162,21 @@ function totals(){
     var isSel = rows[i].getAttribute("data-d") === tk;
     rows[i].classList.toggle("sel", isSel);
     if (isSel) { found = true; tj = t; }
+  }
+  if (!emp) {
+    var off = (new Date(sy, sm - 1, sd).getDay() + 6) % 7, wt = 0;
+    for (var q2 = 0; q2 < 7; q2++) {
+      var kd = key(new Date(sy, sm - 1, sd - off + q2)), trw = $("tb").querySelector('tr[data-d="' + kd + '"]');
+      if (trw) {
+        var iw = trw.getElementsByTagName("input");
+        for (var z = 0; z < iw.length; z++) wt += num(iw[z].value);
+      } else if (data[kd]) {
+        for (var c2 = 0; c2 < CH.length; c2++) wt += num(data[kd][CH[c2]]);
+      }
+    }
+    var ws = new Date(sy, sm - 1, sd - off), we = new Date(sy, sm - 1, sd - off + 6);
+    $("wk").hidden = false;
+    $("wk").innerHTML = "Total de la semaine du " + p(ws.getDate()) + "/" + p(ws.getMonth() + 1) + " au " + p(we.getDate()) + "/" + p(we.getMonth() + 1) + "<b>" + eur(wt) + "</b>";
   }
   $("day").hidden = !found;
   $("day").innerHTML = lab + "<b>" + eur(tj) + "</b>";
