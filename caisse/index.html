@@ -20,12 +20,16 @@ header button{background:#475f94}
 .card b{display:block;font-size:18px;margin-top:4px}
 .card small{color:#64748b}
 .card.t{background:#1f3864;color:#fff}.card.t small{color:#cbd5e1}
+.card.u{background:#ecfdf5}
 .wrap{padding:0 6px 24px}
 table{border-collapse:collapse;width:100%;background:#fff;border-radius:8px}
 th{background:#1f3864;color:#fff;padding:6px 2px;font-size:12px;position:sticky;top:0}
+th.nt{background:#166534}
 td{padding:3px 2px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px}
 td.d{text-align:left;white-space:nowrap;padding-left:4px;font-size:12px}
+td.nt{background:#f0fdf4}
 tr.we td{background:#f1f5f9}
+tr.we td.nt{background:#e7f6ec}
 tr.sel td{background:#fde68a}
 td input{width:100%;min-width:0;padding:6px 3px;font-size:16px;text-align:right}
 tfoot td{background:#1f3864;color:#fff;font-weight:bold;padding:8px 2px;position:sticky;bottom:0}
@@ -33,7 +37,7 @@ td.tot{font-weight:bold;white-space:nowrap}
 #st{margin-left:auto;font-size:13px;color:#bfdbfe}
 .day{margin:12px 12px 0;background:#1f3864;color:#fff;border-radius:8px;padding:10px;text-align:center;font-size:14px}
 .day b{display:block;font-size:24px;margin-top:4px}
-.emp .cards,.emp tfoot,.emp #ms,.emp #ys,.emp #js,.emp #wk{display:none}
+.emp .cards,.emp tfoot,.emp #ms,.emp #ys,.emp #js,.emp #wk,.emp .nt{display:none}
 #wk{margin-top:8px}
 </style>
 </head>
@@ -60,7 +64,7 @@ td.tot{font-weight:bold;white-space:nowrap}
   <div class="cards" id="cards"></div>
   <div class="wrap">
     <table>
-      <thead><tr><th>Jour</th><th>CB</th><th>Espèces</th><th>Uber</th><th>Deliveroo</th><th>Total</th></tr></thead>
+      <thead><tr><th>Jour</th><th>CB</th><th>Espèces</th><th>Uber</th><th class="nt">Uber reçu</th><th>Deliveroo</th><th>Total</th></tr></thead>
       <tbody id="tb"></tbody>
       <tfoot id="tf"></tfoot>
     </table>
@@ -77,6 +81,7 @@ var MOIS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","
 var JOURS = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 var CH = ["cb","especes","uber","deliveroo"];
 var NOMS = ["CB","Espèces","Uber","Deliveroo"];
+var COLS = ["cb","especes","uber","uber_net","deliveroo"];
 var $ = function(id){ return document.getElementById(id); };
 function p(n){ return n < 10 ? "0" + n : "" + n; }
 function key(d){ return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
@@ -135,9 +140,9 @@ function render(y, m, n){
   for (var d = emp ? new Date().getDate() : 1; d <= (emp ? new Date().getDate() : n); d++) {
     var key = y + "-" + p(m) + "-" + p(d), w = new Date(y, m - 1, d).getDay(), row = data[key] || {};
     h += '<tr data-d="' + key + '"' + (w === 0 || w === 6 ? ' class="we"' : "") + '><td class="d">' + JOURS[w] + " " + p(d) + "/" + p(m) + "</td>";
-    CH.forEach(function(c){
+    COLS.forEach(function(c){
       var v = row[c] ? row[c] : "";
-      h += '<td><input type="number" inputmode="decimal" step="0.01" min="0" data-c="' + c + '" value="' + v + '"></td>';
+      h += '<td' + (c === "uber_net" ? ' class="nt"' : "") + '><input type="number" inputmode="decimal" step="0.01" min="0" data-c="' + c + '" value="' + v + '"></td>';
     });
     h += '<td class="tot"></td></tr>';
   }
@@ -147,6 +152,7 @@ function render(y, m, n){
 
 function totals(){
   var sum = [0, 0, 0, 0], tj = 0, found = false, nw = new Date(), tk, lab;
+  var netSum = 0, netSales = 0;
   if (emp) {
     tk = nw.getFullYear() + "-" + p(nw.getMonth() + 1) + "-" + p(nw.getDate()); lab = "Total du jour";
   } else {
@@ -156,8 +162,14 @@ function totals(){
   }
   var rows = $("tb").getElementsByTagName("tr");
   for (var i = 0; i < rows.length; i++) {
-    var ins = rows[i].getElementsByTagName("input"), t = 0;
-    for (var j = 0; j < ins.length; j++) { var v = num(ins[j].value); sum[j] += v; t += v; }
+    var ins = rows[i].getElementsByTagName("input"), t = 0, rUber = 0, rNet = 0;
+    for (var j = 0; j < ins.length; j++) {
+      var c = ins[j].getAttribute("data-c"), v = num(ins[j].value);
+      if (c === "uber_net") { rNet = v; continue; }
+      sum[CH.indexOf(c)] += v; t += v;
+      if (c === "uber") rUber = v;
+    }
+    if (rNet > 0) { netSum += rNet; netSales += rUber; }
     rows[i].lastChild.textContent = t ? eur(t) : "";
     var isSel = rows[i].getAttribute("data-d") === tk;
     rows[i].classList.toggle("sel", isSel);
@@ -169,36 +181,5 @@ function totals(){
       var kd = key(new Date(sy, sm - 1, sd - off + q2)), trw = $("tb").querySelector('tr[data-d="' + kd + '"]');
       if (trw) {
         var iw = trw.getElementsByTagName("input");
-        for (var z = 0; z < iw.length; z++) wt += num(iw[z].value);
-      } else if (data[kd]) {
-        for (var c2 = 0; c2 < CH.length; c2++) wt += num(data[kd][CH[c2]]);
-      }
-    }
-    var ws = new Date(sy, sm - 1, sd - off), we = new Date(sy, sm - 1, sd - off + 6);
-    $("wk").hidden = false;
-    $("wk").innerHTML = "Total de la semaine du " + p(ws.getDate()) + "/" + p(ws.getMonth() + 1) + " au " + p(we.getDate()) + "/" + p(we.getMonth() + 1) + "<b>" + eur(wt) + "</b>";
-  }
-  $("day").hidden = !found;
-  $("day").innerHTML = lab + "<b>" + eur(tj) + "</b>";
-  var all = sum[0] + sum[1] + sum[2] + sum[3], h = "";
-  for (var k = 0; k < 4; k++) {
-    h += '<div class="card"><small>' + NOMS[k] + "</small><b>" + eur(sum[k]) + "</b><small>" + (all ? Math.round(sum[k] / all * 100) : 0) + " %</small></div>";
-  }
-  h += '<div class="card t"><small>Total du mois</small><b>' + eur(all) + "</b></div>";
-  $("cards").innerHTML = h;
-  $("tf").innerHTML = "<tr><td class=\"d\">TOTAL</td><td>" + sum[0].toFixed(0) + "</td><td>" + sum[1].toFixed(0) + "</td><td>" + sum[2].toFixed(0) + "</td><td>" + sum[3].toFixed(0) + "</td><td>" + all.toFixed(0) + " €</td></tr>";
-}
-
-$("tb").addEventListener("input", totals);
-$("tb").addEventListener("change", function(e){
-  var tr = e.target.parentNode.parentNode, rec = { jour: tr.getAttribute("data-d") };
-  var ins = tr.getElementsByTagName("input");
-  for (var i = 0; i < ins.length; i++) rec[ins[i].getAttribute("data-c")] = num(ins[i].value);
-  $("st").textContent = "Enregistrement…";
-  db.from("recettes").upsert(rec).then(function(r){
-    $("st").textContent = r.error ? "⚠ Erreur, réessaie" : "✓ Enregistré";
-  });
-});
-</script>
-</body>
-</html>
+        for (var z = 0; z 
+w
