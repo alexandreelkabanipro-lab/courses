@@ -1,118 +1,218 @@
-/* Ajout : catégories dans l'ordre + unités (kg, L) */
-const ORDRE = ["Viandes", "Sauces", "Frites et snacks", "Légumes", "Pains", "Courses", "Boîtes", "Sucre", "Boissons", "Produits nettoyants"];
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recettes – The Place To B</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f5f7;color:#1f2937}
+header{background:#1f3864;color:#fff;padding:12px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+header h1{font-size:17px;margin:0;flex:1 1 100%}
+select,input,button{font-size:16px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff}
+button{background:#1f3864;color:#fff;border:0;cursor:pointer}
+header button{background:#475f94}
+#login{max-width:320px;margin:60px auto;background:#fff;padding:20px;border-radius:10px;display:flex;flex-direction:column;gap:10px}
+#login h2{margin:0 0 6px}
+#err{color:#b91c1c;font-size:14px;min-height:18px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:12px}
+.card{background:#fff;border-radius:8px;padding:10px;text-align:center}
+.card b{display:block;font-size:18px;margin-top:4px}
+.card small{color:#64748b}
+.card.t{background:#1f3864;color:#fff}.card.t small{color:#cbd5e1}
+.card.u{background:#ecfdf5}
+.wrap{padding:0 6px 24px}
+table{border-collapse:collapse;width:100%;background:#fff;border-radius:8px}
+th{background:#1f3864;color:#fff;padding:6px 2px;font-size:12px;position:sticky;top:0}
+th.nt{background:#166534}
+td{padding:3px 2px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:13px}
+td.d{text-align:left;white-space:nowrap;padding-left:4px;font-size:12px}
+td.nt{background:#f0fdf4}
+tr.we td{background:#f1f5f9}
+tr.we td.nt{background:#e7f6ec}
+tr.sel td{background:#fde68a}
+td input{width:100%;min-width:0;padding:6px 3px;font-size:16px;text-align:right}
+tfoot td{background:#1f3864;color:#fff;font-weight:bold;padding:8px 2px;position:sticky;bottom:0}
+td.tot{font-weight:bold;white-space:nowrap}
+#st{margin-left:auto;font-size:13px;color:#bfdbfe}
+.day{margin:12px 12px 0;background:#1f3864;color:#fff;border-radius:8px;padding:10px;text-align:center;font-size:14px}
+.day b{display:block;font-size:24px;margin-top:4px}
+.emp .cards,.emp tfoot,.emp #ms,.emp #ys,.emp #js,.emp #wk,.emp .nt{display:none}
+#wk{margin-top:8px}
+</style>
+</head>
+<body>
+<div id="login">
+  <h2>Recettes</h2>
+  <input id="em" type="email" placeholder="Email" autocomplete="username">
+  <input id="pw" type="password" placeholder="Mot de passe" autocomplete="current-password">
+  <button id="go">Se connecter</button>
+  <div id="err"></div>
+</div>
 
+<div id="app" hidden>
+  <header>
+    <h1 id="tit">The Place To B – Recettes</h1>
+    <select id="ms"></select>
+    <select id="ys"></select>
+    <select id="js"></select>
+    <span id="st"></span>
+    <button id="out">Quitter</button>
+  </header>
+  <div class="day" id="day" hidden></div>
+  <div class="day" id="wk" hidden></div>
+  <div class="cards" id="cards"></div>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Jour</th><th>CB</th><th>Espèces</th><th>Uber</th><th class="nt">Uber reçu</th><th>Deliveroo</th><th>Total</th></tr></thead>
+      <tbody id="tb"></tbody>
+      <tfoot id="tf"></tfoot>
+    </table>
+  </div>
+</div>
 
-const unite = p => {
-  if (p.unite && p.unite !== "unités") return p.unite;
-  const n = (p.nom || "").trim().toLowerCase();
-  return n === "poulet" || n === "merguez" ? "kg" : n === "huile" ? "L" : "";
-};
-const st = document.createElement("style");
-st.textContent = "select{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);margin:0 0 10px;font:inherit;color:inherit}";
-document.head.append(st);
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+var SUPABASE_URL = "https://uapnfbgdodtyxnutpcee.supabase.co";
+var SUPABASE_KEY = "sb_publishable__IwM31er7DzPxsGJofDs9g_hZgxUvdc";
 
-vueListe = function () {
-  const cats = {};
-  items.forEach(p => (cats[p.categorie || "Autres"] ||= []).push(p));
-  const noms = Object.keys(cats).sort((a, b) => {
-    const i = ORDRE.indexOf(a), j = ORDRE.indexOf(b);
-    return (i < 0 ? 99 : i) - (j < 0 ? 99 : j);
-  });
-  const nb = items.filter(p => p.besoin).length;
-  const blocs = [h("h1", {}, "Il manque quoi ?"), h("p", { class: "sub" }, "Salut " + nom + ". Coche ce qui est presque fini.")];
-  if (!items.length) blocs.push(h("p", { class: "sub" }, "Aucun produit pour l'instant. Le gérant doit d'abord en ajouter."));
-  for (const cat of noms) {
-    blocs.push(h("h2", {}, cat));
-    cats[cat].forEach(p => {
-      const u = unite(p);
-      const cb = h("input", { type: "checkbox", checked: p.besoin, onchange: async () => {
-        await maj(p, cb.checked, 1, ""); vueListe();
-      } });
-      blocs.push(h("div", { class: "row" + (p.besoin ? " on" : "") }, h("label", {}, cb, p.nom)));
-      if (p.besoin) {
-        const note = h("input", { type: "text", placeholder: "Précision (facultatif)", value: p.note, maxLength: 120,
-          onchange: () => maj(p, true, p.qte, note.value) });
-        blocs.push(h("div", { class: "det" },
-          h("div", { class: "qty" },
-            h("button", { class: "alt", "aria-label": "Moins", onclick: async () => { if (p.qte > 1) { await maj(p, true, p.qte - 1, p.note); vueListe(); } } }, "−"),
-            h("b", { style: "min-width:60px" }, p.qte + (u ? " " + u : "")),
-            h("button", { class: "alt", "aria-label": "Plus", onclick: async () => { if (p.qte < 99) { await maj(p, true, p.qte + 1, p.note); vueListe(); } } }, "+")),
-          note));
-      }
-    });
+var db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+var MOIS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+var JOURS = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+var CH = ["cb","especes","uber","deliveroo"];
+var NOMS = ["CB","Espèces","Uber","Deliveroo"];
+var COLS = ["cb","especes","uber","uber_net","deliveroo"];
+var $ = function(id){ return document.getElementById(id); };
+function p(n){ return n < 10 ? "0" + n : "" + n; }
+function key(d){ return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); }
+function eur(x){ return x.toFixed(2).replace(".", ",") + " €"; }
+function num(v){ var x = parseFloat(String(v).replace(",", ".")); return isNaN(x) ? 0 : x; }
+
+var MANAGERS = ["alexandreelkabani.pro@gmail.com", "elkabani@hotmail.fr"], emp = false;
+function show(ok, sess){
+  $("login").hidden = ok; $("app").hidden = !ok;
+  if (ok) {
+    var em = sess && sess.user && sess.user.email ? sess.user.email.toLowerCase() : "";
+    emp = MANAGERS.indexOf(em) < 0;
+    document.body.className = emp ? "emp" : "";
+    $("tit").textContent = emp ? "Recettes du jour" : "The Place To B – Recettes";
+    load();
   }
-  blocs.push(h("div", {}, h("button", { class: "link", onclick: () => { store.set("code", ""); code = ""; vueLogin(); } }, "Changer de personne")));
-  const send = h("button", { class: "main", onclick: async () => {
-    send.disabled = true;
-    const { data, error } = await sb.rpc("courses_envoyer", { p_code: code, p_nom: nom });
-    send.disabled = false;
-    if (error) return toast(error.message.includes("patiente") ? "Patiente 30 secondes avant de renvoyer." : "Erreur : " + error.message);
-    toast(data ? data + " produit(s) envoyé(s) au gérant." : "Rien n'est coché.");
-  } }, nb ? "Envoyer au gérant (" + nb + ")" : "Envoyer au gérant");
-  blocs.push(h("div", { class: "bar" }, send));
-  show(...blocs);
-};
-
-vueAdmin = async function () {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return vueAdminLogin();
-  const { data, error } = await sb.from("courses_produits").select("*").order("categorie").order("nom");
-  if (error) { toast("Accès refusé : ce compte n'est pas gérant."); return vueAdminLogin(); }
-  const nomI = h("input", { type: "text", placeholder: "Produit (ex : Beurre)" });
-  const catI = h("select", {}, ...ORDRE.map(c => h("option", { value: c }, c)));
-  const add = h("button", { onclick: async () => {
-    if (!nomI.value.trim()) return toast("Écris le nom du produit.");
-    const { error } = await sb.from("courses_produits").insert({ nom: nomI.value.trim(), categorie: catI.value });
-    if (error) return toast("Erreur : " + error.message);
-    vueAdmin();
-  } }, "Ajouter le produit");
-  const blocs = [h("h1", {}, "Espace gérant"), h("p", { class: "sub" }, "Gère ta liste de produits."), nomI, catI, add];
-  const aAcheter = data.filter(p => p.besoin);
-  blocs.push(h("h2", {}, "À acheter (" + aAcheter.length + ")"));
-  if (!aAcheter.length) blocs.push(h("p", { class: "sub" }, "Rien à acheter pour le moment."));
-  aAcheter.forEach(p => {
-    const u = unite(p);
-    blocs.push(h("div", { class: "row on" },
-      h("span", { style: "flex:1" }, p.nom + " ×" + p.qte + (u ? " " + u : "") + (p.note ? " (" + p.note + ")" : "") + (p.demande_par ? " — " + p.demande_par : "")),
-      h("button", { class: "alt", onclick: async () => {
-        await sb.from("courses_produits").update({ besoin: false, qte: 0, note: "", demande_par: "", demande_le: null, achete_le: new Date().toISOString() }).eq("id", p.id);
-        vueAdmin();
-      } }, "Acheté")));
+}
+db.auth.getSession().then(function(r){ var s = r.data && r.data.session; show(!!s, s); });
+$("go").onclick = function(){
+  db.auth.signInWithPassword({ email: $("em").value.trim(), password: $("pw").value }).then(function(r){
+    if (r.error) { $("err").textContent = "Email ou mot de passe incorrect."; } else { $("err").textContent = ""; show(true, r.data.session); }
   });
-  blocs.push(h("h2", {}, "Tous les produits (" + data.length + ")"));
-  data.forEach(p => blocs.push(h("div", { class: "row" },
-    h("span", { style: "flex:1" }, p.nom, h("small", { style: "color:var(--mute)" }, p.categorie ? "  · " + p.categorie : "")),
-    h("button", { class: "del", onclick: async () => {
-      if (!confirm("Supprimer " + p.nom + " ?")) return;
-      await sb.from("courses_produits").delete().eq("id", p.id); vueAdmin();
-    } }, "Supprimer"))));
-  blocs.push(h("h2", {}, "Réglages"),
-    h("div", { class: "two" },
-      h("button", { class: "alt", onclick: async () => {
-        const { error } = await sb.rpc("courses_test_notif");
-        toast(error ? "Erreur : " + error.message : "Notification de test envoyée.");
-      } }, "Tester la notif"),
-      h("button", { class: "alt", onclick: async () => { await sb.auth.signOut(); vueAdminLogin(); } }, "Se déconnecter")),
-    h("div", {}, h("button", { class: "link", onclick: () => { location.hash = ""; } }, "Retour à la page employés")));
-  show(...blocs);
 };
-vueLogin = function () {
-  code = "1234";
-  const n = h("input", { type: "text", placeholder: "Ton prénom", value: nom, autocomplete: "given-name" });
-  const go = async () => {
-    if (!n.value.trim()) return toast("Entre ton prénom.");
-    nom = n.value.trim();
-    try { await charger(); store.set("code", code); store.set("nom", nom); vueListe(); }
-    catch (e) { toast("Erreur de connexion."); }
-  };
-  show(
-    h("img", { class: "logo", src: LOGO, alt: "" }),
-    h("h1", {}, "The Place To B"),
-    h("p", { class: "sub" }, "Entre ton prénom pour signaler les produits qui manquent."),
-    n,
-    h("button", { onclick: go }, "Entrer"),
-    h("div", {}, h("button", { class: "link", onclick: () => { location.hash = "admin"; } }, "Espace gérant"))
-  );
-};
+$("out").onclick = function(){ db.auth.signOut().then(function(){ show(false); }); };
 
-route();
+var now = new Date();
+for (var i = 0; i < 12; i++) { var o = document.createElement("option"); o.value = i + 1; o.textContent = MOIS[i]; $("ms").appendChild(o); }
+for (var y = now.getFullYear() - 1; y <= now.getFullYear() + 2; y++) { var q = document.createElement("option"); q.value = y; q.textContent = y; $("ys").appendChild(q); }
+$("ms").value = now.getMonth() + 1; $("ys").value = now.getFullYear();
+$("ms").onchange = load; $("ys").onchange = load;
+
+function fillDays(y, m, n){
+  var t = new Date(), h = "";
+  var def = (y === t.getFullYear() && m === t.getMonth() + 1) ? t.getDate() : 1;
+  for (var d = 1; d <= n; d++) h += '<option value="' + d + '">' + d + "</option>";
+  $("js").innerHTML = h; $("js").value = def;
+}
+$("js").onchange = function(){ totals(); var r = $("tb").querySelector("tr.sel"); if (r) r.scrollIntoView({block: "center"}); };
+
+var data = {};
+function load(){
+  var t = new Date(), y = +$("ys").value, m = +$("ms").value;
+  if (emp) { y = t.getFullYear(); m = t.getMonth() + 1; }
+  var n = new Date(y, m, 0).getDate();
+  if (!emp) fillDays(y, m, n);
+  var a = emp ? key(t) : key(new Date(y, m - 1, -5)), b = emp ? key(t) : key(new Date(y, m - 1, n + 6));
+  db.from("recettes").select("*").gte("jour", a).lte("jour", b).then(function(r){
+    data = {};
+    (r.data || []).forEach(function(x){ data[x.jour] = x; });
+    render(y, m, n);
+  });
+}
+
+function render(y, m, n){
+  var h = "";
+  for (var d = emp ? new Date().getDate() : 1; d <= (emp ? new Date().getDate() : n); d++) {
+    var key = y + "-" + p(m) + "-" + p(d), w = new Date(y, m - 1, d).getDay(), row = data[key] || {};
+    h += '<tr data-d="' + key + '"' + (w === 0 || w === 6 ? ' class="we"' : "") + '><td class="d">' + JOURS[w] + " " + p(d) + "/" + p(m) + "</td>";
+    COLS.forEach(function(c){
+      var v = row[c] ? row[c] : "";
+      h += '<td' + (c === "uber_net" ? ' class="nt"' : "") + '><input type="number" inputmode="decimal" step="0.01" min="0" data-c="' + c + '" value="' + v + '"></td>';
+    });
+    h += '<td class="tot"></td></tr>';
+  }
+  $("tb").innerHTML = h;
+  totals();
+}
+
+function totals(){
+  var sum = [0, 0, 0, 0], tj = 0, found = false, nw = new Date(), tk, lab;
+  var netSum = 0, netSales = 0;
+  if (emp) {
+    tk = nw.getFullYear() + "-" + p(nw.getMonth() + 1) + "-" + p(nw.getDate()); lab = "Total du jour";
+  } else {
+    var sy = +$("ys").value, sm = +$("ms").value, sd = +$("js").value || 1;
+    tk = sy + "-" + p(sm) + "-" + p(sd);
+    lab = "Total du " + JOURS[new Date(sy, sm - 1, sd).getDay()] + " " + p(sd) + "/" + p(sm);
+  }
+  var rows = $("tb").getElementsByTagName("tr");
+  for (var i = 0; i < rows.length; i++) {
+    var ins = rows[i].getElementsByTagName("input"), t = 0, rUber = 0, rNet = 0;
+    for (var j = 0; j < ins.length; j++) {
+      var c = ins[j].getAttribute("data-c"), v = num(ins[j].value);
+      if (c === "uber_net") { rNet = v; continue; }
+      sum[CH.indexOf(c)] += v; t += v;
+      if (c === "uber") rUber = v;
+    }
+    if (rNet > 0) { netSum += rNet; netSales += rUber; }
+    rows[i].lastChild.textContent = t ? eur(t) : "";
+    var isSel = rows[i].getAttribute("data-d") === tk;
+    rows[i].classList.toggle("sel", isSel);
+    if (isSel) { found = true; tj = t; }
+  }
+  if (!emp) {
+    var off = (new Date(sy, sm - 1, sd).getDay() + 6) % 7, wt = 0;
+    for (var q2 = 0; q2 < 7; q2++) {
+      var kd = key(new Date(sy, sm - 1, sd - off + q2)), trw = $("tb").querySelector('tr[data-d="' + kd + '"]');
+      if (trw) {
+        var iw = trw.getElementsByTagName("input");
+        for (var z = 0; z < iw.length; z++) { if (iw[z].getAttribute("data-c") !== "uber_net") wt += num(iw[z].value); }
+      } else if (data[kd]) {
+        for (var c2 = 0; c2 < CH.length; c2++) wt += num(data[kd][CH[c2]]);
+      }
+    }
+    var ws = new Date(sy, sm - 1, sd - off), we = new Date(sy, sm - 1, sd - off + 6);
+    $("wk").hidden = false;
+    $("wk").innerHTML = "Total de la semaine du " + p(ws.getDate()) + "/" + p(ws.getMonth() + 1) + " au " + p(we.getDate()) + "/" + p(we.getMonth() + 1) + "<b>" + eur(wt) + "</b>";
+  }
+  $("day").hidden = !found;
+  $("day").innerHTML = lab + "<b>" + eur(tj) + "</b>";
+  var all = sum[0] + sum[1] + sum[2] + sum[3], h = "";
+  for (var k = 0; k < 4; k++) {
+    h += '<div class="card"><small>' + NOMS[k] + "</small><b>" + eur(sum[k]) + "</b><small>" + (all ? Math.round(sum[k] / all * 100) : 0) + " %</small></div>";
+  }
+  var pris = netSales ? (netSales - netSum) / netSales * 100 : 0;
+  h += '<div class="card u"><small>Uber : je reçois</small><b>' + eur(netSum) + "</b><small>" + (netSales ? "Uber prend " + pris.toFixed(1).replace(".", ",") + " %" : "saisis « Uber reçu »") + "</small></div>";
+  h += '<div class="card t"><small>Total du mois</small><b>' + eur(all) + "</b></div>";
+  $("cards").innerHTML = h;
+  $("tf").innerHTML = "<tr><td class=\"d\">TOTAL</td><td>" + sum[0].toFixed(0) + "</td><td>" + sum[1].toFixed(0) + "</td><td>" + sum[2].toFixed(0) + "</td><td>" + netSum.toFixed(0) + "</td><td>" + sum[3].toFixed(0) + "</td><td>" + all.toFixed(0) + " €</td></tr>";
+}
+
+$("tb").addEventListener("input", totals);
+$("tb").addEventListener("change", function(e){
+  var tr = e.target.parentNode.parentNode, rec = { jour: tr.getAttribute("data-d") };
+  var ins = tr.getElementsByTagName("input");
+  for (var i = 0; i < ins.length; i++) rec[ins[i].getAttribute("data-c")] = num(ins[i].value);
+  $("st").textContent = "Enregistrement…";
+  db.from("recettes").upsert(rec).then(function(r){
+    $("st").textContent = r.error ? "⚠ Erreur, réessaie" : "✓ Enregistré";
+  });
+});
+</script>
+</body>
+</html>
