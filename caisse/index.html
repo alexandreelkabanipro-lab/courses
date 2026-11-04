@@ -181,5 +181,38 @@ function totals(){
       var kd = key(new Date(sy, sm - 1, sd - off + q2)), trw = $("tb").querySelector('tr[data-d="' + kd + '"]');
       if (trw) {
         var iw = trw.getElementsByTagName("input");
-        for (var z = 0; z 
-w
+        for (var z = 0; z < iw.length; z++) { if (iw[z].getAttribute("data-c") !== "uber_net") wt += num(iw[z].value); }
+      } else if (data[kd]) {
+        for (var c2 = 0; c2 < CH.length; c2++) wt += num(data[kd][CH[c2]]);
+      }
+    }
+    var ws = new Date(sy, sm - 1, sd - off), we = new Date(sy, sm - 1, sd - off + 6);
+    $("wk").hidden = false;
+    $("wk").innerHTML = "Total de la semaine du " + p(ws.getDate()) + "/" + p(ws.getMonth() + 1) + " au " + p(we.getDate()) + "/" + p(we.getMonth() + 1) + "<b>" + eur(wt) + "</b>";
+  }
+  $("day").hidden = !found;
+  $("day").innerHTML = lab + "<b>" + eur(tj) + "</b>";
+  var all = sum[0] + sum[1] + sum[2] + sum[3], h = "";
+  for (var k = 0; k < 4; k++) {
+    h += '<div class="card"><small>' + NOMS[k] + "</small><b>" + eur(sum[k]) + "</b><small>" + (all ? Math.round(sum[k] / all * 100) : 0) + " %</small></div>";
+  }
+  var pris = netSales ? (netSales - netSum) / netSales * 100 : 0;
+  h += '<div class="card u"><small>Uber : je reçois</small><b>' + eur(netSum) + "</b><small>" + (netSales ? "Uber prend " + pris.toFixed(1).replace(".", ",") + " %" : "saisis « Uber reçu »") + "</small></div>";
+  h += '<div class="card t"><small>Total du mois</small><b>' + eur(all) + "</b></div>";
+  $("cards").innerHTML = h;
+  $("tf").innerHTML = "<tr><td class=\"d\">TOTAL</td><td>" + sum[0].toFixed(0) + "</td><td>" + sum[1].toFixed(0) + "</td><td>" + sum[2].toFixed(0) + "</td><td>" + netSum.toFixed(0) + "</td><td>" + sum[3].toFixed(0) + "</td><td>" + all.toFixed(0) + " €</td></tr>";
+}
+
+$("tb").addEventListener("input", totals);
+$("tb").addEventListener("change", function(e){
+  var tr = e.target.parentNode.parentNode, rec = { jour: tr.getAttribute("data-d") };
+  var ins = tr.getElementsByTagName("input");
+  for (var i = 0; i < ins.length; i++) rec[ins[i].getAttribute("data-c")] = num(ins[i].value);
+  $("st").textContent = "Enregistrement…";
+  db.from("recettes").upsert(rec).then(function(r){
+    $("st").textContent = r.error ? "⚠ Erreur, réessaie" : "✓ Enregistré";
+  });
+});
+</script>
+</body>
+</html>
